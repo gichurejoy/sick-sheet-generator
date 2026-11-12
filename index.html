@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sick Sheet & Medical Certificate Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas for 1-click image download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- QRCode.js CDN for optional security verification QR code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Cedarville+Cursive&family=Covered+By+Your+Grace&family=Dawning+of+a+New+Day&family=Gochi+Hand&family=Homemade+Apple&family=Just+Another+Hand&family=Nothing+You+Could+Do&family=Patrick+Hand&family=Reenie+Beanie&family=Shadows+Into+Light&family=Great+Vibes&family=Marck+Script&family=Tinos:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --handwriting-font: 'Nothing You Could Do', cursive;
+            --handwriting-ink: #0a2775;
+            --handwriting-size: 1.22em;
+            --handwriting-weight: 400;
+        }
+
+        /* Printable document styling */
+        @media print {
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .sheet-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: auto !important;
+                padding: 1.5cm 1.5cm !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 0.8cm;
+            }
+        }
+
+        .font-document {
+            font-family: 'Tinos', 'Times New Roman', Times, serif;
+        }
+
+        .font-signature-1 {
+            font-family: 'Great Vibes', cursive;
+        }
+        .font-signature-2 {
+            font-family: 'Caveat', cursive;
+        }
+        .font-signature-3 {
+            font-family: 'Marck Script', cursive;
+        }
+
+        /* Dotted fill line (Delicate, realistic printed sheet dots) */
+        .dotted-line {
+            border-bottom: 1.2px dotted #6b7280;
+            display: inline-block;
+            min-height: 1.5em;
+        }
+
+        /* Doctor's realistic fine ballpoint pen handwriting */
+        .doc-handwriting {
+            font-family: var(--handwriting-font, 'Nothing You Could Do', cursive) !important;
+            font-size: var(--handwriting-size, 1.22em) !important;
+            color: var(--handwriting-ink, #0a2775) !important;
+            font-weight: var(--handwriting-weight, 400) !important;
+            line-height: 1 !important;
+            letter-spacing: 0.4px;
+            transform: translateY(-2px);
+            -webkit-font-smoothing: subpixel-antialiased;
+            text-rendering: optimizeLegibility;
+            display: inline-block;
+        }
+
+        /* Subtle natural organic slant & imperfect baseline shifts */
+        .hand-tilt-1 { transform: rotate(-0.7deg) translateY(-2px); }
+        .hand-tilt-2 { transform: rotate(0.6deg) translateY(-3px); }
+        .hand-tilt-3 { transform: rotate(-0.5deg) translateY(-1px); }
+        .hand-tilt-4 { transform: rotate(0.8deg) translateY(-2px); }
+
+        /* Stamp animation and style */
+        .stamp-mark {
+            mix-blend-mode: multiply;
+            user-select: none;
+            cursor: grab;
+            transition: transform 0.05s ease-out;
+        }
+        .stamp-mark:active {
+            cursor: grabbing;
+        }
+        .stamp-grunge {
+            filter: contrast(130%) drop-shadow(0 1px 1px rgba(0,0,0,0.08));
+        }
+
+        /* Signature canvas styling */
+        .sig-canvas {
+            touch-action: none;
+            background-color: #fafafa;
+            background-image: 
+                linear-gradient(to right, #f1f5f9 1px, transparent 1px),
+                linear-gradient(to bottom, #f1f5f9 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-md font-bold text-lg">
+                    ✚
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg text-slate-900 leading-tight">Sick Sheet & Medical Certificate Generator</h1>
+                    <p class="text-xs text-slate-500">Hospital • Health Clinic • Pharmacy • Stamped & Signed</p>
+                </div>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <div class="hidden lg:flex items-center space-x-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
+                    <span class="text-slate-400 px-2 font-medium">Presets:</span>
+                    <button onclick="fillSampleData('hospital')" class="px-2.5 py-1 text-slate-700 hover:bg-white hover:shadow-xs rounded transition">🏥 Hospital</button>
+                    <button onclick="fillSampleData('clinic')" class="px-2.5 py-1 text-slate-700 hover:bg-white hover:shadow-xs rounded transition">🩺 Clinic</button>
+                    <button onclick="fillSampleData('pharmacy')" class="px-2.5 py-1 text-slate-700 hover:bg-white hover:shadow-xs rounded transition">💊 Pharmacy</button>
+                </div>
+
+                <!-- Record Management / Modal Button -->
+                <button onclick="toggleHistoryModal(true)" class="px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Records (<span id="recordCount">0</span>)</span>
+                </button>
+
+                <!-- Download PNG -->
+                <button onclick="downloadAsImage()" class="px-3 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    <span>Save Image</span>
+                </button>
+
+                <!-- Print / PDF -->
+                <button onclick="handlePrintAndSave()" class="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                    <span>Print / PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Left Controls Column (Form inputs) -->
+            <div class="no-print lg:col-span-5 space-y-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-h-[calc(100vh-6rem)] overflow-y-auto">
+                <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
+                    <h2 class="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                        <span>✏️</span> Certificate Settings & Customization
+                    </h2>
+                    <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">Real-time Preview</span>
+                </div>
+
+                <!-- 1. Facility Header & Logo Upload -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">1. Facility & Logo</h3>
+                        <div class="lg:hidden flex gap-1">
+                            <button onclick="fillSampleData('hospital')" class="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Hospital</button>
+                            <button onclick="fillSampleData('clinic')" class="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Clinic</button>
+                            <button onclick="fillSampleData('pharmacy')" class="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Pharmacy</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Facility Name</label>
+                            <input type="text" id="inputFacilityName" oninput="handleFacilityNameChange()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="ST. JUDE MEDICAL CENTRE & HOSPITAL">
+                        </div>
+
+                        <!-- Logo Upload Section -->
+                        <div class="col-span-2 p-3 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-bold text-slate-700">Facility Logo Upload</label>
+                                <button type="button" id="btnRemoveLogo" onclick="removeLogo()" class="hidden text-[11px] text-red-600 hover:text-red-700 font-semibold underline">Remove Logo</button>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input type="file" id="inputLogoFile" accept="image/*" onchange="handleLogoUpload(event)" class="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer">
+                            </div>
+                            <!-- Uploaded logo thumbnail preview -->
+                            <div id="logoPreviewRow" class="mt-2.5 hidden flex items-center gap-2 text-xs text-slate-600 bg-white p-1.5 rounded border border-slate-200">
+                                <img id="logoThumbImg" class="h-8 w-8 object-contain rounded border p-0.5 bg-slate-50" alt="Logo preview">
+                                <span class="text-[11px] font-medium text-emerald-700">✓ Custom logo active on certificate & stamp</span>
+                            </div>
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Subtitle / Services</label>
+                            <input type="text" id="inputFacilitySub" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="Outpatient & Inpatient Services • Pharmacy • Diagnostic Laboratory">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Address & Contacts</label>
+                            <input type="text" id="inputFacilityContact" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="P.O. Box 4022-00100, Health Road • Tel: +254 700 123 456 • Emergency: +254 711 999 888">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Header Style</label>
+                            <select id="inputShowHeader" onchange="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="true">Full Official Letterhead (Logo + Address)</option>
+                                <option value="minimal">Minimal Header (Bold Facility Name only)</option>
+                                <option value="false">None (Plain template matching photo)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Sheet Format & Inclusions (Layout Builder) -->
+                <div class="space-y-3 pt-3 border-t border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">2. Sheet Format & Title</h3>
+                        <span class="text-[11px] text-emerald-600 font-medium">Custom Layout</span>
+                    </div>
+
+                    <!-- Title Settings -->
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="inline-flex items-center text-xs font-bold text-slate-800 gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleShowTitle" checked onchange="updatePreview()" class="rounded text-emerald-600 focus:ring-emerald-500">
+                                <span>Show Document Title</span>
+                            </label>
+                            <button type="button" onclick="setDocTitle('')" class="text-[11px] text-red-600 hover:text-red-700 font-semibold underline">Remove Title</button>
+                        </div>
+                        
+                        <div>
+                            <input type="text" id="inputDocTitle" oninput="updatePreview()" class="w-full text-sm font-semibold px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white" value="TO WHOM IT MAY CONCERN" placeholder="Type document title or leave blank to remove">
+                            
+                            <!-- Quick Title Presets -->
+                            <div class="flex flex-wrap gap-1.5 mt-2 text-xs">
+                                <span class="text-[11px] text-slate-400 self-center mr-1">Presets:</span>
+                                <button type="button" onclick="setDocTitle('TO WHOM IT MAY CONCERN')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 text-[11px]">To Whom It May Concern</button>
+                                <button type="button" onclick="setDocTitle('MEDICAL CERTIFICATE')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 text-[11px]">Medical Certificate</button>
+                                <button type="button" onclick="setDocTitle('SICK SHEET')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 text-[11px]">Sick Sheet</button>
+                                <button type="button" onclick="setDocTitle('EXCUSE DUTY CERTIFICATE')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 text-[11px]">Excuse Duty</button>
+                                <button type="button" onclick="setDocTitle('')" class="px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[11px]">✕ Remove Title</button>
+                            </div>
+                        </div>
+
+                        <!-- Alignment & Underline Options -->
+                        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-0.5">Title Alignment</label>
+                                <select id="inputTitleAlign" onchange="updatePreview()" class="w-full text-xs px-2.5 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                                    <option value="left" selected>Left-aligned (Like Photo)</option>
+                                    <option value="center">Centered</option>
+                                    <option value="right">Right-aligned</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-0.5">Title Underline</label>
+                                <select id="inputTitleUnderline" onchange="updatePreview()" class="w-full text-xs px-2.5 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                                    <option value="underline" selected>Underlined</option>
+                                    <option value="none">Plain (No Underline)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checklist: What to Include on the Certificate -->
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-bold text-slate-800">What to Include (Toggle Lines):</label>
+                            <span class="text-[10px] text-slate-500">Live Show / Hide</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-slate-700">
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLinePatient" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Patient Name line</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleFieldAge" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Age field</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleFieldOPD" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>OPD / Card No.</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineSeen" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>"Seen at health facility on"</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineAccorded" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>"Medical attention accorded"</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineOpinion" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>"Needs off duty" duration</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineDates" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>"With effect from... to..."</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineResume" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Next appointment / Resume</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineDoctor" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Doctor's name line</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineSignature" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Signature line</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="toggleLineStampDate" checked onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Stamp & Date line</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Custom Line Wording / Phrasing -->
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                        <label class="block text-xs font-bold text-slate-800">Custom Line Phrasing:</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-0.5">Appointment Line Phrase</label>
+                                <select id="inputNextApptLabel" onchange="updatePreview()" class="w-full text-xs px-2 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                                    <option value="Next appointment on" selected>Next appointment on</option>
+                                    <option value="Resumed duties on">Resumed duties on</option>
+                                    <option value="Expected return to duty on">Expected return to duty on</option>
+                                    <option value="Follow-up review on">Follow-up review on</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-0.5">Consultation Line Phrase</label>
+                                <select id="inputSeenLabel" onchange="updatePreview()" class="w-full text-xs px-2 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                                    <option value="The above mentioned was seen at the health facility on" selected>The above mentioned was seen at the health facility on</option>
+                                    <option value="Treated at our clinic on">Treated at our clinic on</option>
+                                    <option value="Examined at our medical facility on">Examined at our medical facility on</option>
+                                    <option value="This is to certify that the patient attended clinic on">This is to certify that the patient attended clinic on</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Patient & Consultation Info -->
+                <div class="space-y-3 pt-3 border-t border-slate-100">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">2. Patient & Consultation</h3>
+                    <div class="grid grid-cols-6 gap-3">
+                        <div class="col-span-6 sm:col-span-4">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Patient Name</label>
+                            <input type="text" id="inputPatientName" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="John K. Doe">
+                        </div>
+                        <div class="col-span-3 sm:col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Age</label>
+                            <input type="text" id="inputAge" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="32 Yrs">
+                        </div>
+                        <div class="col-span-3 sm:col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">OPD / Card No.</label>
+                            <input type="text" id="inputOPD" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="92742">
+                        </div>
+                        <div class="col-span-3 sm:col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Date Seen</label>
+                            <input type="date" id="inputSeenDate" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div class="col-span-6 sm:col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Date Display Format</label>
+                            <select id="inputDateFormat" onchange="updatePreview()" class="w-full text-xs px-2.5 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium">
+                                <option value="numeric" selected>30/11/2026 (Numeric - Like Photo)</option>
+                                <option value="friendly">30th Nov, 2026 (Words)</option>
+                            </select>
+                        </div>
+                        <div class="col-span-6">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Gender / Pronoun Grammar</label>
+                            <div class="flex gap-4 text-xs pt-1">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" name="pronoun" value="slash" checked onchange="updatePreview()" class="text-emerald-600 focus:ring-emerald-500">
+                                    <span class="ml-1.5 text-slate-700">him/her & she/he (standard template)</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" name="pronoun" value="him" onchange="updatePreview()" class="text-emerald-600 focus:ring-emerald-500">
+                                    <span class="ml-1.5 text-slate-700">him / he (Male)</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" name="pronoun" value="her" onchange="updatePreview()" class="text-emerald-600 focus:ring-emerald-500">
+                                    <span class="ml-1.5 text-slate-700">her / she (Female)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- Optional Diagnosis Field -->
+                        <div class="col-span-6">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-medium text-slate-700">Optional Diagnosis / Clinical Remarks</label>
+                                <label class="inline-flex items-center text-xs text-slate-500 gap-1 cursor-pointer">
+                                    <input type="checkbox" id="toggleShowDiagnosis" onchange="updatePreview()" class="rounded text-emerald-600">
+                                    <span>Include line</span>
+                                </label>
+                            </div>
+                            <input type="text" id="inputDiagnosis" oninput="updatePreview()" placeholder="e.g. Acute Upper Respiratory Tract Infection (URTI)" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="Acute Gastroenteritis / Dehydration managed">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Sick Off Duration & Dates -->
+                <div class="space-y-3 pt-3 border-t border-slate-100">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">3. Sick Off Duration & Dates</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Off Duty Duration</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="inputDurationNum" min="1" max="90" value="3" oninput="autoCalculateDates()" class="w-24 text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <select id="inputDurationUnit" onchange="autoCalculateDates()" class="flex-1 text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                    <option value="days">days</option>
+                                    <option value="weeks">weeks</option>
+                                    <option value="days/weeks">days/weeks (Slash style)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">With Effect From</label>
+                            <input type="date" id="inputStartDate" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">To (Inclusive)</label>
+                            <input type="date" id="inputEndDate" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Next Appointment On</label>
+                            <input type="date" id="inputResumeDate" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        
+                        <!-- Doctor Handwriting Style Options -->
+                        <div class="col-span-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span>🖋️</span> Doctor's Handwriting Settings
+                                </label>
+                                <span class="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-full">Imperfect Pen Mode</span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Handwriting Font Style</label>
+                                    <select id="inputHandwritingFont" onchange="updateHandwritingStyle()" class="w-full text-xs px-2.5 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium">
+                                        <option value="'Nothing You Could Do', cursive" selected>Nothing You Could Do (Imperfect Doctor Scrawl - Like Photo)</option>
+                                        <option value="'Just Another Hand', cursive">Just Another Hand (Fine Narrow Clinic Pen)</option>
+                                        <option value="'Reenie Beanie', cursive">Reenie Beanie (Thin Scratchy Ballpoint)</option>
+                                        <option value="'Shadows Into Light', cursive">Shadows Into Light (Casual Imperfect Hand)</option>
+                                        <option value="'Covered By Your Grace', cursive">Covered By Your Grace (Fast Uneven Pen)</option>
+                                        <option value="'Dawning of a New Day', cursive">Dawning of a New Day (Doctor Cursive)</option>
+                                        <option value="'Caveat', cursive">Caveat (Flowing Pen)</option>
+                                        <option value="'Homemade Apple', cursive">Homemade Apple (Prescription Script)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Pen Thickness</label>
+                                    <select id="inputPenThickness" onchange="updateHandwritingStyle()" class="w-full text-xs px-2.5 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium">
+                                        <option value="ultra-fine" selected>Thin Ballpoint (Fine 0.5mm)</option>
+                                        <option value="fine">Standard Pen (0.7mm)</option>
+                                        <option value="medium">Medium Pen (1.0mm)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Pen Ink Color</label>
+                                    <select id="inputHandwritingInk" onchange="updateHandwritingStyle()" class="w-full text-xs px-2.5 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium">
+                                        <option value="#0a2775" selected>Blue Ballpoint (Like Photo)</option>
+                                        <option value="#0d3291">Vivid Royal Blue Ink</option>
+                                        <option value="#071b4d">Deep Navy Blue Pen</option>
+                                        <option value="#1c1c1e">Classic Black Ballpoint</option>
+                                        <option value="#4a154b">Blue-Black Gel Pen</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Duration Format</label>
+                                    <select id="inputDurationFormat" onchange="updatePreview()" class="w-full text-xs px-2.5 py-1.5 border rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium">
+                                        <option value="word_bracket" selected>Word & Angle: Two &lt;2&gt; (Like Photo)</option>
+                                        <option value="word_paren">Word & Paren: Two (2)</option>
+                                        <option value="num_paren">Num & Paren: 2 (Two)</option>
+                                        <option value="word_only">Word only: Two</option>
+                                        <option value="num_only">Number only: 2</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Signature Section (Sign with mouse/stylus, type cursive, or upload) -->
+                <div class="space-y-3 pt-3 border-t border-slate-100">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">4. Doctor's Signature</h3>
+                        <span class="text-[11px] text-emerald-600 font-medium">Draw, Type or Upload</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Doctor's / Officer's Name</label>
+                            <input type="text" id="inputDoctorName" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="Dr. Evans M. Ombati, MD">
+                        </div>
+
+                        <!-- Signature Method Tabs -->
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Choose How to Sign</label>
+                            <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-lg text-xs font-medium">
+                                <button type="button" id="tabSignDraw" onclick="setSignTab('draw')" class="py-1.5 px-2 rounded-md bg-white text-slate-800 shadow-xs transition text-center">✍️ Draw</button>
+                                <button type="button" id="tabSignType" onclick="setSignTab('type')" class="py-1.5 px-2 rounded-md text-slate-600 hover:text-slate-800 transition text-center">🖋️ Font</button>
+                                <button type="button" id="tabSignUpload" onclick="setSignTab('upload')" class="py-1.5 px-2 rounded-md text-slate-600 hover:text-slate-800 transition text-center">📁 Upload</button>
+                            </div>
+                        </div>
+
+                        <!-- TAB A: DRAW SIGNATURE CANVAS -->
+                        <div id="signDrawPanel" class="col-span-2 bg-slate-50 border border-slate-300 rounded-lg p-3 space-y-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-medium text-slate-700">Sign with Mouse, Trackpad or Touch:</span>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="clearSignatureCanvas()" class="text-red-600 hover:text-red-700 font-semibold text-[11px] underline">Clear</button>
+                                </div>
+                            </div>
+                            <canvas id="signatureCanvas" width="400" height="120" class="sig-canvas border border-slate-300 rounded-lg cursor-crosshair w-full"></canvas>
+                            <div class="flex justify-between items-center text-[11px] text-slate-500">
+                                <span>Ink color: Blue</span>
+                                <span>Drawn signature updates live on the sheet</span>
+                            </div>
+                        </div>
+
+                        <!-- TAB B: TYPE / FONT SIGNATURE -->
+                        <div id="signTypePanel" class="col-span-2 hidden space-y-2">
+                            <label class="block text-xs font-medium text-slate-700">Cursive Calligraphy Style</label>
+                            <select id="inputSignatureStyle" onchange="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="style1">Cursive Signature 1 (Great Vibes)</option>
+                                <option value="style2">Calligraphy 2 (Caveat)</option>
+                                <option value="style3">Casual Script 3 (Marck Script)</option>
+                                <option value="blank">Blank Line (Sign with physical pen)</option>
+                            </select>
+                        </div>
+
+                        <!-- TAB C: UPLOAD SIGNATURE IMAGE -->
+                        <div id="signUploadPanel" class="col-span-2 hidden bg-slate-50 border border-dashed border-slate-300 rounded-lg p-3 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-xs font-bold text-slate-700">Upload Signature Image (PNG, JPG)</label>
+                                <button type="button" id="btnRemoveSigUpload" onclick="removeUploadedSig()" class="hidden text-[11px] text-red-600 underline">Remove</button>
+                            </div>
+                            <input type="file" id="inputSigFile" accept="image/*" onchange="handleSigUpload(event)" class="text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer">
+                            <p class="text-[11px] text-slate-500">Tip: Transparent PNG signatures blend naturally on the paper.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Stamp Customization (Name, Shape, Colors, Angle) -->
+                <div class="space-y-3 pt-3 border-t border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">5. Official Stamp Customization</h3>
+                        <label class="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                            <input type="checkbox" id="checkSyncStampName" checked class="rounded text-emerald-600">
+                            <span>Sync with Facility Name</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- STAMP NAME INPUT -->
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+                                <span>🏛️</span> Stamp Name / Organization
+                            </label>
+                            <input type="text" id="inputStampTextTop" oninput="handleStampNameInput()" class="w-full text-sm font-semibold px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-emerald-50/40 border-emerald-300" value="ST. JUDE MEDICAL CENTRE">
+                            <p class="text-[11px] text-slate-500 mt-1">This text curves along the upper ring of the stamp.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Shape</label>
+                            <select id="inputStampShape" onchange="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="circle">Circular Rubber Stamp</option>
+                                <option value="oval">Oval Seal Stamp</option>
+                                <option value="rect">Rectangular Box Stamp</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Ink Color</label>
+                            <select id="inputStampColor" onchange="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="#1d4ed8">Official Blue Ink</option>
+                                <option value="#6b21a8">Purple / Violet Ink</option>
+                                <option value="#b91c1c">Medical Red Ink</option>
+                                <option value="#15803d">Green Ink</option>
+                                <option value="#1e293b">Classic Black Ink</option>
+                                <option value="none">No Stamp</option>
+                            </select>
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Bottom Ring Text</label>
+                            <input type="text" id="inputStampTextBottom" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="★ MINISTRY OF HEALTH REGISTERED ★">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Center Top</label>
+                            <input type="text" id="inputStampCenter1" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="MEDICAL OFFICER">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Center Bottom</label>
+                            <input type="text" id="inputStampCenter2" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" value="APPROVED & CERTIFIED">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Rotation</label>
+                            <input type="range" id="inputStampAngle" min="-30" max="30" value="-10" oninput="updatePreview()" class="w-full accent-emerald-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Stamp Date</label>
+                            <input type="date" id="inputStampDate" oninput="updatePreview()" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+
+                        <div class="col-span-2 flex items-center justify-between pt-1">
+                            <label class="inline-flex items-center text-xs text-slate-700 gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="checkStampUseLogo" onchange="updatePreview()" class="rounded text-emerald-600">
+                                <span>Show uploaded logo in center of stamp</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Template Mode & QR Verification -->
+                <div class="pt-3 border-t border-slate-100 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-700 block">Blank Slip Pad Mode</span>
+                            <span class="text-[11px] text-slate-500">Leaves dotted lines empty for handwriting</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="toggleBlankMode" onchange="updatePreview()" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-700 block">Security QR Code</span>
+                            <span class="text-[11px] text-slate-500">Scan to verify authenticity of certificate</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="toggleQRCode" checked onchange="updatePreview()" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Document Preview (Exact replication of the image + Stamp) -->
+            <div class="lg:col-span-7 flex flex-col items-center">
+                <!-- Toolbar above preview -->
+                <div class="no-print w-full flex items-center justify-between mb-3 text-xs text-slate-500 px-2">
+                    <span class="flex items-center gap-1.5 font-medium text-slate-700">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Official Document Preview
+                    </span>
+                    <span class="text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full font-medium">
+                        🖐️ Stamp is draggable! Move it anywhere
+                    </span>
+                </div>
+
+                <!-- The Printable Sheet: Formatted identically to user's photo -->
+                <div id="printSheet" class="sheet-container w-full bg-white rounded-lg shadow-xl border border-slate-300 p-8 sm:p-12 md:p-14 text-slate-950 font-document relative leading-relaxed min-h-[750px] transition-all">
+                    
+                    <!-- Optional Hospital / Clinic Letterhead Header -->
+                    <div id="facilityHeader" class="text-center mb-8 border-b-2 border-slate-900 pb-4">
+                        <div class="flex items-center justify-center gap-4">
+                            <!-- Default Medical Cross Icon -->
+                            <div id="defaultCrossIcon" class="w-11 h-11 border-2 border-red-600 rounded flex items-center justify-center text-red-600 font-bold text-2xl leading-none shrink-0">
+                                ✚
+                            </div>
+                            <!-- User Uploaded Logo (in place of or alongside cross) -->
+                            <img id="uploadedLogoImg" class="max-h-14 max-w-[120px] object-contain hidden shrink-0" alt="Clinic Logo" />
+                            
+                            <div class="text-center">
+                                <h2 id="viewFacilityName" class="text-xl sm:text-2xl font-bold tracking-wide uppercase text-slate-950 font-document">
+                                    ST. JUDE MEDICAL CENTRE & HOSPITAL
+                                </h2>
+                                <p id="viewFacilitySub" class="text-xs sm:text-sm text-slate-700 font-sans tracking-tight">
+                                    Outpatient & Inpatient Services • Pharmacy • Diagnostic Laboratory
+                                </p>
+                            </div>
+                        </div>
+                        <p id="viewFacilityContact" class="text-[11px] sm:text-xs text-slate-600 font-sans mt-1.5">
+                            P.O. Box 4022-00100, Health Road • Tel: +254 700 123 456 • Emergency: +254 711 999 888
+                        </p>
+                    </div>
+
+                    <!-- Main Document Title (matches photo: TO WHOM IT MAY CONCERN underlined, or custom title/hidden) -->
+                    <div id="rowDocTitleContainer" class="mb-8 mt-2 flex justify-between items-center">
+                        <h2 id="viewDocTitle" class="text-lg sm:text-xl font-bold uppercase tracking-wider underline underline-offset-4 decoration-2">
+                            TO WHOM IT MAY CONCERN
+                        </h2>
+                        <!-- QR Code verification badge -->
+                        <div id="qrContainer" class="hidden sm:flex flex-col items-center border border-slate-200 p-1.5 rounded bg-white shadow-xs">
+                            <div id="qrcode"></div>
+                            <span class="text-[9px] text-slate-400 font-sans tracking-tighter mt-1 font-semibold">VERIFY AUTHENTICITY</span>
+                        </div>
+                    </div>
+
+                    <!-- Document Body Lines (Replicating the exact structure of the photo) -->
+                    <div class="space-y-6 text-base sm:text-lg">
+                        
+                        <!-- Line 1: Patient name, age, OPD -->
+                        <div id="rowPatientInfo" class="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+                            <span class="font-bold whitespace-nowrap">Patient name</span>
+                            <span id="linePatientName" class="dotted-line flex-grow doc-handwriting hand-tilt-1 px-2 min-w-[140px]">
+                                John K. Doe
+                            </span>
+                            <span id="wrapAge" class="inline-flex items-baseline gap-x-2">
+                                <span class="font-bold whitespace-nowrap">age</span>
+                                <span id="lineAge" class="dotted-line w-20 text-center doc-handwriting hand-tilt-2 px-1">
+                                    32 Yrs
+                                </span>
+                            </span>
+                            <span id="wrapOPD" class="inline-flex items-baseline gap-x-2">
+                                <span class="font-bold whitespace-nowrap">OPD</span>
+                                <span id="lineOPD" class="dotted-line w-32 text-center doc-handwriting hand-tilt-3 px-1">
+                                    92742
+                                </span>
+                            </span>
+                        </div>
+
+                        <!-- Line 2: The above mentioned was seen at the health facility on -->
+                        <div id="rowSeenFacility" class="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+                            <span id="labelSeenFacility" class="font-bold whitespace-nowrap">The above mentioned was seen at the health facility on</span>
+                            <span id="lineSeenDate" class="dotted-line flex-grow doc-handwriting hand-tilt-4 px-2 min-w-[180px]">
+                                30/11/2026
+                            </span>
+                        </div>
+
+                        <!-- Line 3: Medical attention was accorded to him/her. -->
+                        <div id="rowAccorded" class="flex items-baseline">
+                            <span id="lineAccorded" class="font-bold">Medical attention was accorded to him/her.</span>
+                        </div>
+
+                        <!-- Optional Diagnosis Line (if enabled) -->
+                        <div id="lineDiagnosisContainer" class="hidden flex-wrap items-baseline gap-x-2 gap-y-2">
+                            <span class="font-bold whitespace-nowrap">Diagnosis / Clinical remarks:</span>
+                            <span id="lineDiagnosis" class="dotted-line flex-grow doc-handwriting hand-tilt-2 italic px-2 min-w-[200px]">
+                                Acute Gastroenteritis / Dehydration managed
+                            </span>
+                        </div>
+
+                        <!-- Line 4: In my opinion she/he needs off duty ... days/weeks -->
+                        <div id="rowOpinion" class="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+                            <span id="lineOpinionPrefix" class="font-bold whitespace-nowrap">In my opinion she/he needs off duty</span>
+                            <span id="lineDuration" class="dotted-line flex-grow doc-handwriting hand-tilt-1 px-2 min-w-[150px] text-center">
+                                Two &lt;2&gt;
+                            </span>
+                            <span id="lineDurationUnit" class="font-bold whitespace-nowrap">days/weeks</span>
+                        </div>
+
+                        <!-- Line 5: With effect from ... to ... -->
+                        <div id="rowDates" class="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+                            <span class="font-bold whitespace-nowrap">With effect from</span>
+                            <span id="lineStartDate" class="dotted-line flex-grow doc-handwriting hand-tilt-3 px-2 min-w-[150px] text-center">
+                                30/11/2026
+                            </span>
+                            <span class="font-bold whitespace-nowrap">to</span>
+                            <span id="lineEndDate" class="dotted-line flex-grow doc-handwriting hand-tilt-2 px-2 min-w-[150px] text-center">
+                                02/12/2026
+                            </span>
+                        </div>
+
+                        <!-- Line 6: Next appointment on -->
+                        <div id="rowNextAppt" class="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+                            <span id="labelNextAppt" class="font-bold whitespace-nowrap">Next appointment on</span>
+                            <span id="lineResumeDate" class="dotted-line flex-grow doc-handwriting hand-tilt-4 px-2 min-w-[200px]">
+                                03/12/2026
+                            </span>
+                        </div>
+
+                        <!-- Line 7: Doctors name -->
+                        <div id="rowDoctorName" class="flex flex-wrap items-baseline gap-x-2 gap-y-2 pt-2">
+                            <span class="font-bold whitespace-nowrap">Doctors name</span>
+                            <span id="lineDoctorName" class="dotted-line flex-grow doc-handwriting hand-tilt-1 px-2 min-w-[250px]">
+                                Dr. Evans M. Ombati, MD
+                            </span>
+                        </div>
+
+                        <!-- Line 8: Signature -->
+                        <div id="rowSignature" class="flex items-baseline gap-x-3 pt-6">
+                            <span class="font-bold whitespace-nowrap">Signature</span>
+                            <div class="relative flex-grow">
+                                <span class="dotted-line w-64 block"></span>
+                                <!-- Typed cursive font signature -->
+                                <div id="lineSignatureContainer" class="absolute -top-7 left-6 font-signature-1 text-3xl text-blue-900 select-none">
+                                    <span id="lineSignatureText">E. M. Ombati</span>
+                                </div>
+                                <!-- Canvas drawn or uploaded image signature -->
+                                <img id="lineSignatureImage" class="absolute -top-10 left-6 h-14 max-w-[220px] hidden object-contain select-none" alt="Doctor Signature">
+                            </div>
+                        </div>
+
+                        <!-- Line 9: Stamp and date with physical stamp overlay -->
+                        <div id="rowStampDate" class="pt-8 relative min-h-[140px]">
+                            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-2 relative z-0">
+                                <span class="font-bold whitespace-nowrap">Stamp</span>
+                                <span class="dotted-line flex-grow min-w-[160px]"></span>
+                                <span class="font-bold whitespace-nowrap">date</span>
+                                <span id="lineStampDate" class="dotted-line w-48 text-center doc-handwriting hand-tilt-2 px-2">
+                                    30/11/2026
+                                </span>
+                            </div>
+
+                            <!-- Realistic Vector Rubber Stamp (Draggable) -->
+                            <div id="stampWrapper" class="absolute left-20 -top-12 z-20 stamp-mark stamp-grunge" title="Click and drag to reposition stamp">
+                                
+                                <!-- CIRCULAR STAMP -->
+                                <svg id="svgStampCircle" width="180" height="180" viewBox="0 0 200 200" class="drop-shadow-sm pointer-events-none">
+                                    <circle cx="100" cy="100" r="92" fill="none" stroke="currentColor" stroke-width="4.5" stroke-dasharray="280 2 280 2" />
+                                    <circle cx="100" cy="100" r="82" fill="none" stroke="currentColor" stroke-width="1.8" />
+                                    <circle cx="100" cy="100" r="54" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 2" />
+
+                                    <defs>
+                                        <path id="curveTop" d="M 28 100 A 72 72 0 1 1 172 100" fill="none"/>
+                                        <path id="curveBottom" d="M 172 100 A 72 72 0 0 1 28 100" fill="none"/>
+                                    </defs>
+
+                                    <!-- Circular Text Upper (Stamp Name) -->
+                                    <text font-family="'Tinos', serif" font-weight="bold" font-size="11.5" fill="currentColor" letter-spacing="1.5">
+                                        <textPath href="#curveTop" startOffset="50%" text-anchor="middle" class="stampSvgTextTop">
+                                            ST. JUDE MEDICAL CENTRE
+                                        </textPath>
+                                    </text>
+
+                                    <!-- Circular Text Lower -->
+                                    <text font-family="'Tinos', serif" font-weight="bold" font-size="9" fill="currentColor" letter-spacing="1.8">
+                                        <textPath href="#curveBottom" startOffset="50%" text-anchor="middle" class="stampSvgTextBottom">
+                                            ★ MINISTRY OF HEALTH REGISTERED ★
+                                        </textPath>
+                                    </text>
+
+                                    <!-- Optional Logo in Center -->
+                                    <image id="stampCircleCenterLogo" x="80" y="80" width="40" height="40" preserveAspectRatio="xMidYMid meet" class="hidden opacity-80" />
+
+                                    <g id="stampCircleCenterTextGroup">
+                                        <line x1="62" y1="78" x2="138" y2="78" stroke="currentColor" stroke-width="1.2"/>
+                                        <text x="100" y="91" font-family="sans-serif" font-weight="900" font-size="8.5" fill="currentColor" text-anchor="middle" letter-spacing="1.2" class="stampSvgCenter1">
+                                            MEDICAL OFFICER
+                                        </text>
+                                        <text x="100" y="106" font-family="'Tinos', serif" font-weight="bold" font-size="11.5" fill="currentColor" text-anchor="middle" class="stampSvgDate">
+                                            11 NOV 2026
+                                        </text>
+                                        <text x="100" y="119" font-family="sans-serif" font-weight="800" font-size="8" fill="currentColor" text-anchor="middle" letter-spacing="1" class="stampSvgCenter2">
+                                            APPROVED & CERTIFIED
+                                        </text>
+                                        <line x1="62" y1="123" x2="138" y2="123" stroke="currentColor" stroke-width="1.2"/>
+                                    </g>
+                                </svg>
+
+                                <!-- OVAL STAMP -->
+                                <svg id="svgStampOval" width="200" height="150" viewBox="0 0 220 160" class="drop-shadow-sm pointer-events-none hidden">
+                                    <ellipse cx="110" cy="80" rx="100" ry="68" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="320 2" />
+                                    <ellipse cx="110" cy="80" rx="90" ry="58" fill="none" stroke="currentColor" stroke-width="1.6" />
+                                    <ellipse cx="110" cy="80" rx="66" ry="38" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2" />
+
+                                    <defs>
+                                        <path id="curveOvalTop" d="M 30 80 A 80 48 0 1 1 190 80" fill="none"/>
+                                        <path id="curveOvalBottom" d="M 190 80 A 80 48 0 0 1 30 80" fill="none"/>
+                                    </defs>
+
+                                    <text font-family="'Tinos', serif" font-weight="bold" font-size="11" fill="currentColor" letter-spacing="1.2">
+                                        <textPath href="#curveOvalTop" startOffset="50%" text-anchor="middle" class="stampSvgTextTop">
+                                            ST. JUDE MEDICAL CENTRE
+                                        </textPath>
+                                    </text>
+
+                                    <text font-family="'Tinos', serif" font-weight="bold" font-size="9" fill="currentColor" letter-spacing="1.5">
+                                        <textPath href="#curveOvalBottom" startOffset="50%" text-anchor="middle" class="stampSvgTextBottom">
+                                            ★ MINISTRY OF HEALTH REGISTERED ★
+                                        </textPath>
+                                    </text>
+
+                                    <g>
+                                        <text x="110" y="73" font-family="sans-serif" font-weight="800" font-size="8.5" fill="currentColor" text-anchor="middle" class="stampSvgCenter1">
+                                            MEDICAL OFFICER
+                                        </text>
+                                        <text x="110" y="87" font-family="'Tinos', serif" font-weight="bold" font-size="11" fill="currentColor" text-anchor="middle" class="stampSvgDate">
+                                            11 NOV 2026
+                                        </text>
+                                        <text x="110" y="99" font-family="sans-serif" font-weight="800" font-size="8" fill="currentColor" text-anchor="middle" class="stampSvgCenter2">
+                                            APPROVED & CERTIFIED
+                                        </text>
+                                    </g>
+                                </svg>
+
+                                <!-- RECTANGULAR BOX STAMP -->
+                                <svg id="svgStampRect" width="200" height="120" viewBox="0 0 220 130" class="drop-shadow-sm pointer-events-none hidden">
+                                    <rect x="6" y="6" width="208" height="118" rx="6" fill="none" stroke="currentColor" stroke-width="3.5" stroke-dasharray="300 2" />
+                                    <rect x="14" y="14" width="192" height="102" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" />
+
+                                    <text x="110" y="34" font-family="'Tinos', serif" font-weight="bold" font-size="11.5" fill="currentColor" text-anchor="middle" letter-spacing="1" class="stampSvgTextTop">
+                                        ST. JUDE MEDICAL CENTRE
+                                    </text>
+                                    <line x1="20" y1="42" x2="200" y2="42" stroke="currentColor" stroke-width="1" />
+                                    <text x="110" y="58" font-family="sans-serif" font-weight="800" font-size="9" fill="currentColor" text-anchor="middle" letter-spacing="1" class="stampSvgCenter1">
+                                        MEDICAL OFFICER
+                                    </text>
+                                    <text x="110" y="76" font-family="'Tinos', serif" font-weight="bold" font-size="12" fill="currentColor" text-anchor="middle" class="stampSvgDate">
+                                        11 NOV 2026
+                                    </text>
+                                    <line x1="20" y1="84" x2="200" y2="84" stroke="currentColor" stroke-width="1" />
+                                    <text x="110" y="100" font-family="sans-serif" font-weight="800" font-size="8" fill="currentColor" text-anchor="middle" letter-spacing="1" class="stampSvgCenter2">
+                                        APPROVED & CERTIFIED
+                                    </text>
+                                </svg>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- Print & PDF helper -->
+                <div class="no-print mt-4 text-xs text-slate-500 text-center max-w-lg space-y-1">
+                    <p>💡 <strong>Printing instructions:</strong> Choose <strong>Save as PDF</strong> or select your printer. Paper size: <strong>A4</strong> or <strong>Letter</strong>.</p>
+                    <p class="text-[11px] text-slate-400">Headers and toolbars are automatically hidden when printing or exporting.</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Records / History Modal -->
+    <div id="historyModal" class="no-print fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📋</span>
+                    <h3 class="font-bold text-slate-900 text-base">Issued Sick Sheet Records</h3>
+                </div>
+                <button onclick="toggleHistoryModal(false)" class="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto py-4">
+                <div id="historyList" class="space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="clearAllRecords()" class="text-xs text-red-600 hover:text-red-700 font-medium">Clear All Records</button>
+                <button onclick="toggleHistoryModal(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSignMode = 'draw';
+        let drawnSignatureDataUrl = null;
+        let uploadedSignatureDataUrl = null;
+        let uploadedLogoDataUrl = null;
+
+        // Initialize default dates and setup
+        window.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+
+            document.getElementById('inputSeenDate').value = todayStr;
+            document.getElementById('inputStartDate').value = todayStr;
+            document.getElementById('inputStampDate').value = todayStr;
+            
+            initSignaturePad();
+            updateHandwritingStyle();
+            autoCalculateDates();
+            updatePreview();
+            setupDraggableStamp();
+            loadRecordsCount();
+        });
+
+        // Set Document Title Preset or Remove
+        function setDocTitle(text) {
+            document.getElementById('inputDocTitle').value = text;
+            document.getElementById('toggleShowTitle').checked = text.length > 0;
+            updatePreview();
+        }
+
+        // Tab switcher for signing
+        function setSignTab(tab) {
+            currentSignMode = tab;
+            
+            // Tab styling
+            const btnDraw = document.getElementById('tabSignDraw');
+            const btnType = document.getElementById('tabSignType');
+            const btnUpload = document.getElementById('tabSignUpload');
+
+            btnDraw.className = tab === 'draw' ? 'py-1.5 px-2 rounded-md bg-white text-slate-800 shadow-xs transition text-center font-bold' : 'py-1.5 px-2 rounded-md text-slate-600 hover:text-slate-800 transition text-center';
+            btnType.className = tab === 'type' ? 'py-1.5 px-2 rounded-md bg-white text-slate-800 shadow-xs transition text-center font-bold' : 'py-1.5 px-2 rounded-md text-slate-600 hover:text-slate-800 transition text-center';
+            btnUpload.className = tab === 'upload' ? 'py-1.5 px-2 rounded-md bg-white text-slate-800 shadow-xs transition text-center font-bold' : 'py-1.5 px-2 rounded-md text-slate-600 hover:text-slate-800 transition text-center';
+
+            // Show/hide panels
+            document.getElementById('signDrawPanel').classList.toggle('hidden', tab !== 'draw');
+            document.getElementById('signTypePanel').classList.toggle('hidden', tab !== 'type');
+            document.getElementById('signUploadPanel').classList.toggle('hidden', tab !== 'upload');
+
+            updatePreview();
+        }
+
+        // Logo Upload Handler
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedLogoDataUrl = e.target.result;
+                
+                // Show thumbnail
+                document.getElementById('logoThumbImg').src = uploadedLogoDataUrl;
+                document.getElementById('logoPreviewRow').classList.remove('hidden');
+                document.getElementById('btnRemoveLogo').classList.remove('hidden');
+                
+                updatePreview();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeLogo() {
+            uploadedLogoDataUrl = null;
+            document.getElementById('inputLogoFile').value = '';
+            document.getElementById('logoPreviewRow').classList.add('hidden');
+            document.getElementById('btnRemoveLogo').classList.add('hidden');
+            updatePreview();
+        }
+
+        // Signature Upload Handler
+        function handleSigUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedSignatureDataUrl = e.target.result;
+                document.getElementById('btnRemoveSigUpload').classList.remove('hidden');
+                updatePreview();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeUploadedSig() {
+            uploadedSignatureDataUrl = null;
+            document.getElementById('inputSigFile').value = '';
+            document.getElementById('btnRemoveSigUpload').classList.add('hidden');
+            updatePreview();
+        }
+
+        // Handle handwriting style updates
+        function updateHandwritingStyle() {
+            const fontEl = document.getElementById('inputHandwritingFont');
+            const inkEl = document.getElementById('inputHandwritingInk');
+            const thickEl = document.getElementById('inputPenThickness');
+            if (!fontEl || !inkEl) return;
+
+            const font = fontEl.value;
+            const ink = inkEl.value;
+            const thickness = thickEl ? thickEl.value : 'ultra-fine';
+            
+            let weight = '400';
+            if (thickness === 'ultra-fine') weight = '300';
+            else if (thickness === 'medium') weight = '600';
+            else weight = '400';
+
+            let size = '1.2em';
+            if (font.includes('Nothing You Could Do')) size = '1.22em';
+            else if (font.includes('Shadows Into Light')) size = '1.25em';
+            else if (font.includes('Covered By Your Grace')) size = '1.32em';
+            else if (font.includes('Just Another Hand')) size = '1.5em';
+            else if (font.includes('Dawning of a New Day')) size = '1.22em';
+            else if (font.includes('Reenie Beanie')) size = '1.45em';
+            else if (font.includes('Homemade Apple')) size = '1.05em';
+            else if (font.includes('Patrick Hand')) size = '1.15em';
+            else if (font.includes('Caveat')) size = '1.18em';
+
+            document.documentElement.style.setProperty('--handwriting-font', font);
+            document.documentElement.style.setProperty('--handwriting-ink', ink);
+            document.documentElement.style.setProperty('--handwriting-size', size);
+            document.documentElement.style.setProperty('--handwriting-weight', weight);
+        }
+
+        // Handle typing in facility name with optional stamp name sync
+        function handleFacilityNameChange() {
+            const facName = document.getElementById('inputFacilityName').value;
+            const sync = document.getElementById('checkSyncStampName').checked;
+            if (sync) {
+                // Shorten slightly if too long for round stamp
+                let stampName = facName.replace(/& HOSPITAL/i, '').replace(/& HEALTH CENTRE/i, '').trim();
+                document.getElementById('inputStampTextTop').value = stampName;
+            }
+            updatePreview();
+        }
+
+        function handleStampNameInput() {
+            // When user edits stamp text directly, uncheck auto-sync
+            document.getElementById('checkSyncStampName').checked = false;
+            updatePreview();
+        }
+
+        // Format dates
+        function formatDateFriendly(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            if (!y || !m || !d) return dateStr;
+            const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+            
+            const day = date.getDate();
+            const suffix = (day === 1 || day === 21 || day === 31) ? 'st' :
+                           (day === 2 || day === 22) ? 'nd' :
+                           (day === 3 || day === 23) ? 'rd' : 'th';
+            
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            return `${day}${suffix} ${months[date.getMonth()]}, ${date.getFullYear()}`;
+        }
+
+        function formatDateNumeric(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            if (!y || !m || !d) return dateStr;
+            return `${d}/${m}/${y}`;
+        }
+
+        function formatDateStamp(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            if (!y || !m || !d) return dateStr;
+            const monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+            return `${d} ${monthsShort[parseInt(m) - 1]} ${y}`;
+        }
+
+        // Auto calculates end date and resume duty date based on duration
+        function autoCalculateDates() {
+            const startDateStr = document.getElementById('inputStartDate').value;
+            if (!startDateStr) return;
+
+            const num = parseInt(document.getElementById('inputDurationNum').value) || 1;
+            const unit = document.getElementById('inputDurationUnit').value;
+            const totalDays = unit === 'weeks' ? num * 7 : num;
+
+            const [y, m, d] = startDateStr.split('-');
+            const start = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+
+            // End date = start + (totalDays - 1)
+            const end = new Date(start);
+            end.setDate(end.getDate() + (totalDays - 1));
+
+            // Resume date = end + 1 day
+            const resume = new Date(end);
+            resume.setDate(resume.getDate() + 1);
+
+            const formatYMD = (dt) => {
+                const year = dt.getFullYear();
+                const month = String(dt.getMonth() + 1).padStart(2, '0');
+                const day = String(dt.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            document.getElementById('inputEndDate').value = formatYMD(end);
+            document.getElementById('inputResumeDate').value = formatYMD(resume);
+
+            updatePreview();
+        }
+
+        // Interactive Signature Pad Logic
+        function initSignaturePad() {
+            const canvas = document.getElementById('signatureCanvas');
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+            let lastX = 0, lastY = 0;
+
+            ctx.strokeStyle = '#0a2775'; // Authentic fine ballpoint blue ink
+            ctx.lineWidth = 1.7; // Fine ballpoint pen stroke
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const touch = (e.touches && e.touches.length > 0) ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : null);
+                const clientX = touch ? touch.clientX : e.clientX;
+                const clientY = touch ? touch.clientY : e.clientY;
+                return [
+                    (clientX - rect.left) * (canvas.width / rect.width),
+                    (clientY - rect.top) * (canvas.height / rect.height)
+                ];
+            }
+
+            function startDraw(e) {
+                isDrawing = true;
+                [lastX, lastY] = getPos(e);
+            }
+
+            function draw(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                const [x, y] = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                [lastX, lastY] = [x, y];
+            }
+
+            function stopDraw() {
+                if (isDrawing) {
+                    isDrawing = false;
+                    drawnSignatureDataUrl = canvas.toDataURL('image/png');
+                    updatePreview();
+                }
+            }
+
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            window.addEventListener('mouseup', stopDraw);
+
+            canvas.addEventListener('touchstart', startDraw);
+            canvas.addEventListener('touchmove', draw);
+            window.addEventListener('touchend', stopDraw);
+        }
+
+        function clearSignatureCanvas() {
+            const canvas = document.getElementById('signatureCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawnSignatureDataUrl = null;
+            updatePreview();
+        }
+
+        // Live preview synchronization
+        function updatePreview() {
+            const isBlankMode = document.getElementById('toggleBlankMode').checked;
+
+            // Header visibility & Logo setup
+            const headerMode = document.getElementById('inputShowHeader').value;
+            const facilityHeader = document.getElementById('facilityHeader');
+            const defaultCross = document.getElementById('defaultCrossIcon');
+            const uploadedLogoImg = document.getElementById('uploadedLogoImg');
+
+            if (headerMode === 'false') {
+                facilityHeader.style.display = 'none';
+            } else {
+                facilityHeader.style.display = 'block';
+                if (uploadedLogoDataUrl) {
+                    uploadedLogoImg.src = uploadedLogoDataUrl;
+                    uploadedLogoImg.classList.remove('hidden');
+                    defaultCross.classList.add('hidden');
+                } else {
+                    uploadedLogoImg.classList.add('hidden');
+                    defaultCross.classList.remove('hidden');
+                }
+
+                if (headerMode === 'minimal') {
+                    document.getElementById('viewFacilitySub').style.display = 'none';
+                    document.getElementById('viewFacilityContact').style.display = 'none';
+                } else {
+                    document.getElementById('viewFacilitySub').style.display = 'block';
+                    document.getElementById('viewFacilityContact').style.display = 'block';
+                }
+            }
+
+            document.getElementById('viewFacilityName').innerText = document.getElementById('inputFacilityName').value;
+            document.getElementById('viewFacilitySub').innerText = document.getElementById('inputFacilitySub').value;
+            document.getElementById('viewFacilityContact').innerText = document.getElementById('inputFacilityContact').value;
+
+            // Title visibility and formatting
+            const chkTitle = document.getElementById('toggleShowTitle');
+            const showTitle = chkTitle ? chkTitle.checked : true;
+            const docTitleRow = document.getElementById('rowDocTitleContainer');
+            const viewDocTitle = document.getElementById('viewDocTitle');
+            const titleInput = document.getElementById('inputDocTitle');
+            const titleText = titleInput ? titleInput.value.trim() : '';
+            const titleAlign = document.getElementById('inputTitleAlign') ? document.getElementById('inputTitleAlign').value : 'left';
+            const titleUnderline = document.getElementById('inputTitleUnderline') ? document.getElementById('inputTitleUnderline').value : 'underline';
+
+            if (!showTitle || !titleText) {
+                if (viewDocTitle) viewDocTitle.style.display = 'none';
+            } else {
+                if (viewDocTitle) {
+                    viewDocTitle.style.display = 'block';
+                    viewDocTitle.innerText = titleText;
+                    viewDocTitle.className = `text-lg sm:text-xl font-bold uppercase tracking-wider ${titleUnderline === 'underline' ? 'underline underline-offset-4 decoration-2' : ''}`;
+                }
+                
+                if (docTitleRow) {
+                    if (titleAlign === 'center') {
+                        docTitleRow.className = 'mb-8 mt-2 flex flex-col sm:flex-row justify-center items-center text-center relative';
+                    } else if (titleAlign === 'right') {
+                        docTitleRow.className = 'mb-8 mt-2 flex justify-end items-center text-right';
+                    } else {
+                        docTitleRow.className = 'mb-8 mt-2 flex justify-between items-center text-left';
+                    }
+                }
+            }
+
+            // Line visibility toggles
+            const toggleLine = (id, checkId) => {
+                const el = document.getElementById(id);
+                const chk = document.getElementById(checkId);
+                if (el && chk) {
+                    el.style.display = chk.checked ? '' : 'none';
+                }
+            };
+
+            toggleLine('rowPatientInfo', 'toggleLinePatient');
+            toggleLine('wrapAge', 'toggleFieldAge');
+            toggleLine('wrapOPD', 'toggleFieldOPD');
+            toggleLine('rowSeenFacility', 'toggleLineSeen');
+            toggleLine('rowAccorded', 'toggleLineAccorded');
+            toggleLine('rowOpinion', 'toggleLineOpinion');
+            toggleLine('rowDates', 'toggleLineDates');
+            toggleLine('rowNextAppt', 'toggleLineResume');
+            toggleLine('rowDoctorName', 'toggleLineDoctor');
+            toggleLine('rowSignature', 'toggleLineSignature');
+            toggleLine('rowStampDate', 'toggleLineStampDate');
+
+            // Custom phrasing labels
+            if (document.getElementById('labelNextAppt') && document.getElementById('inputNextApptLabel')) {
+                document.getElementById('labelNextAppt').innerText = document.getElementById('inputNextApptLabel').value;
+            }
+            if (document.getElementById('labelSeenFacility') && document.getElementById('inputSeenLabel')) {
+                document.getElementById('labelSeenFacility').innerText = document.getElementById('inputSeenLabel').value;
+            }
+
+            // Pronouns
+            const pronoun = document.querySelector('input[name="pronoun"]:checked').value;
+            if (isBlankMode || pronoun === 'slash') {
+                document.getElementById('lineAccorded').innerText = 'Medical attention was accorded to him/her.';
+                document.getElementById('lineOpinionPrefix').innerText = 'In my opinion she/he needs off duty';
+            } else if (pronoun === 'him') {
+                document.getElementById('lineAccorded').innerText = 'Medical attention was accorded to him.';
+                document.getElementById('lineOpinionPrefix').innerText = 'In my opinion he needs off duty';
+            } else {
+                document.getElementById('lineAccorded').innerText = 'Medical attention was accorded to her.';
+                document.getElementById('lineOpinionPrefix').innerText = 'In my opinion she needs off duty';
+            }
+
+            // Optional diagnosis line
+            const showDiag = document.getElementById('toggleShowDiagnosis').checked;
+            const diagContainer = document.getElementById('lineDiagnosisContainer');
+            if (showDiag && !isBlankMode) {
+                diagContainer.classList.remove('hidden');
+                diagContainer.classList.add('flex');
+                document.getElementById('lineDiagnosis').innerText = document.getElementById('inputDiagnosis').value;
+            } else {
+                diagContainer.classList.add('hidden');
+                diagContainer.classList.remove('flex');
+            }
+
+            if (isBlankMode) {
+                // Empty lines for manual handwriting
+                document.getElementById('linePatientName').innerText = '';
+                document.getElementById('lineAge').innerText = '';
+                document.getElementById('lineOPD').innerText = '';
+                document.getElementById('lineSeenDate').innerText = '';
+                document.getElementById('lineDuration').innerText = '';
+                document.getElementById('lineDurationUnit').innerText = 'days/weeks';
+                document.getElementById('lineStartDate').innerText = '';
+                document.getElementById('lineEndDate').innerText = '';
+                document.getElementById('lineResumeDate').innerText = '';
+                document.getElementById('lineDoctorName').innerText = '';
+                document.getElementById('lineSignatureContainer').style.display = 'none';
+                document.getElementById('lineSignatureImage').style.display = 'none';
+                document.getElementById('lineStampDate').innerText = '';
+                document.getElementById('stampWrapper').style.display = 'none';
+                document.getElementById('qrContainer').style.display = 'none';
+                return;
+            }
+
+            // Normal filled mode
+            const patientName = document.getElementById('inputPatientName').value || '................';
+            const age = document.getElementById('inputAge').value || '.....';
+            const opd = document.getElementById('inputOPD').value || '............';
+            const seenDate = document.getElementById('inputSeenDate').value;
+            
+            document.getElementById('linePatientName').innerText = patientName;
+            document.getElementById('lineAge').innerText = age;
+            document.getElementById('lineOPD').innerText = opd;
+            
+            const dateFormat = document.getElementById('inputDateFormat') ? document.getElementById('inputDateFormat').value : 'numeric';
+            const formattedSeenDate = dateFormat === 'friendly' ? formatDateFriendly(seenDate) : formatDateNumeric(seenDate);
+            document.getElementById('lineSeenDate').innerText = formattedSeenDate || '................................';
+
+            const durationNum = document.getElementById('inputDurationNum').value;
+            const durationUnit = document.getElementById('inputDurationUnit').value;
+            const numberWords = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Fourteen', 'Twenty-One', 'Thirty'];
+            const word = numberWords[parseInt(durationNum)] || durationNum;
+            
+            const formatMode = document.getElementById('inputDurationFormat') ? document.getElementById('inputDurationFormat').value : 'word_bracket';
+            let durationDisplay = `${word} <${durationNum}>`;
+            if (formatMode === 'word_paren') durationDisplay = `${word} (${durationNum})`;
+            else if (formatMode === 'num_paren') durationDisplay = `${durationNum} (${word})`;
+            else if (formatMode === 'word_only') durationDisplay = `${word}`;
+            else if (formatMode === 'num_only') durationDisplay = `${durationNum}`;
+            else durationDisplay = `${word} <${durationNum}>`;
+
+            document.getElementById('lineDuration').innerText = durationDisplay;
+            document.getElementById('lineDurationUnit').innerText = durationUnit;
+
+            const startDate = document.getElementById('inputStartDate').value;
+            const endDate = document.getElementById('inputEndDate').value;
+            const resumeDate = document.getElementById('inputResumeDate').value;
+
+            document.getElementById('lineStartDate').innerText = formatDateNumeric(startDate) || '............';
+            document.getElementById('lineEndDate').innerText = formatDateNumeric(endDate) || '............';
+            document.getElementById('lineResumeDate').innerText = formatDateNumeric(resumeDate) || '............';
+
+            const doctorName = document.getElementById('inputDoctorName').value;
+            document.getElementById('lineDoctorName').innerText = doctorName || '................................';
+
+            // Signature Logic
+            const sigContainer = document.getElementById('lineSignatureContainer');
+            const sigText = document.getElementById('lineSignatureText');
+            const sigImg = document.getElementById('lineSignatureImage');
+
+            if (currentSignMode === 'draw') {
+                sigContainer.style.display = 'none';
+                if (drawnSignatureDataUrl) {
+                    sigImg.src = drawnSignatureDataUrl;
+                    sigImg.style.display = 'block';
+                } else {
+                    sigImg.style.display = 'none';
+                }
+            } else if (currentSignMode === 'upload') {
+                sigContainer.style.display = 'none';
+                if (uploadedSignatureDataUrl) {
+                    sigImg.src = uploadedSignatureDataUrl;
+                    sigImg.style.display = 'block';
+                } else {
+                    sigImg.style.display = 'none';
+                }
+            } else if (currentSignMode === 'type') {
+                sigImg.style.display = 'none';
+                const sigStyle = document.getElementById('inputSignatureStyle').value;
+                if (sigStyle === 'blank') {
+                    sigContainer.style.display = 'none';
+                } else {
+                    sigContainer.style.display = 'block';
+                    sigContainer.className = 'absolute -top-7 left-6 text-3xl text-blue-900 select-none';
+                    if (sigStyle === 'style1') sigContainer.classList.add('font-signature-1');
+                    if (sigStyle === 'style2') sigContainer.classList.add('font-signature-2');
+                    if (sigStyle === 'style3') sigContainer.classList.add('font-signature-3');
+
+                    const docClean = doctorName.replace(/Dr\.?\s*/i, '').replace(/Pharm\.?\s*/i, '').replace(/,\s*.*$/, '');
+                    sigText.innerText = docClean || 'E. Ombati';
+                }
+            }
+
+            // Stamp shape & color
+            const stampColor = document.getElementById('inputStampColor').value;
+            const stampWrapper = document.getElementById('stampWrapper');
+            const stampShape = document.getElementById('inputStampShape').value;
+
+            if (stampColor === 'none') {
+                stampWrapper.style.display = 'none';
+            } else {
+                stampWrapper.style.display = 'block';
+
+                // Toggle which SVG shape to show
+                document.getElementById('svgStampCircle').classList.toggle('hidden', stampShape !== 'circle');
+                document.getElementById('svgStampOval').classList.toggle('hidden', stampShape !== 'oval');
+                document.getElementById('svgStampRect').classList.toggle('hidden', stampShape !== 'rect');
+
+                const activeSvg = document.getElementById(
+                    stampShape === 'circle' ? 'svgStampCircle' :
+                    stampShape === 'oval' ? 'svgStampOval' : 'svgStampRect'
+                );
+                activeSvg.style.color = stampColor;
+
+                const angle = document.getElementById('inputStampAngle').value || -10;
+                stampWrapper.style.transform = `rotate(${angle}deg)`;
+
+                // STAMP TEXT (Name)
+                const stampTop = document.getElementById('inputStampTextTop').value.toUpperCase();
+                const stampBottom = document.getElementById('inputStampTextBottom').value.toUpperCase();
+                const center1 = document.getElementById('inputStampCenter1').value.toUpperCase();
+                const center2 = document.getElementById('inputStampCenter2').value.toUpperCase();
+
+                const stampDate = document.getElementById('inputStampDate').value || seenDate;
+                document.getElementById('lineStampDate').innerText = formatDateNumeric(stampDate);
+
+                // Update text across all SVG elements
+                document.querySelectorAll('.stampSvgTextTop').forEach(el => el.textContent = stampTop);
+                document.querySelectorAll('.stampSvgTextBottom').forEach(el => el.textContent = stampBottom);
+                document.querySelectorAll('.stampSvgCenter1').forEach(el => el.textContent = center1);
+                document.querySelectorAll('.stampSvgCenter2').forEach(el => el.textContent = center2);
+                document.querySelectorAll('.stampSvgDate').forEach(el => el.textContent = formatDateStamp(stampDate));
+
+                // Optional Logo inside Stamp Center
+                const stampCenterLogo = document.getElementById('stampCircleCenterLogo');
+                const stampCenterTextGroup = document.getElementById('stampCircleCenterTextGroup');
+                const useLogoInStamp = document.getElementById('checkStampUseLogo').checked;
+
+                if (useLogoInStamp && uploadedLogoDataUrl && stampShape === 'circle') {
+                    stampCenterLogo.setAttribute('href', uploadedLogoDataUrl);
+                    stampCenterLogo.classList.remove('hidden');
+                } else {
+                    stampCenterLogo.classList.add('hidden');
+                }
+            }
+
+            // QR Code generation
+            const showQR = document.getElementById('toggleQRCode').checked;
+            const qrWrapper = document.getElementById('qrContainer');
+            if (showQR) {
+                qrWrapper.style.display = 'flex';
+                updateQRCode(patientName, opd, seenDate, durationNum, durationUnit);
+            } else {
+                qrWrapper.style.display = 'none';
+            }
+        }
+
+        // Generate / Update QR Code
+        function updateQRCode(patient, opd, date, dur, unit) {
+            const qrDiv = document.getElementById('qrcode');
+            qrDiv.innerHTML = '';
+            const verificationText = `VERIFIED MEDICAL CERTIFICATE\nFacility: ${document.getElementById('inputFacilityName').value}\nPatient: ${patient}\nOPD: ${opd}\nDate Seen: ${date}\nDuty Off: ${dur} ${unit}\nPractitioner: ${document.getElementById('inputDoctorName').value}`;
+            
+            try {
+                new QRCode(qrDiv, {
+                    text: verificationText,
+                    width: 58,
+                    height: 58,
+                    colorDark : "#1e293b",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.M
+                });
+            } catch (e) {
+                console.warn('QR code generation error:', e);
+            }
+        }
+
+        // Draggable Stamp Logic
+        function setupDraggableStamp() {
+            const stamp = document.getElementById('stampWrapper');
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            stamp.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = stamp.offsetLeft;
+                initialTop = stamp.offsetTop;
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                stamp.style.left = `${initialLeft + dx}px`;
+                stamp.style.top = `${initialTop + dy}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+
+        // Download as high-resolution PNG
+        function downloadAsImage() {
+            const sheet = document.getElementById('printSheet');
+            const patient = document.getElementById('inputPatientName').value.replace(/[^a-zA-Z0-9]/g, '_') || 'Patient';
+            
+            const origShadow = sheet.style.boxShadow;
+            sheet.style.boxShadow = 'none';
+
+            html2canvas(sheet, {
+                scale: 2.5,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                sheet.style.boxShadow = origShadow;
+                const link = document.createElement('a');
+                link.download = `Sick_Sheet_${patient}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                saveCurrentRecord();
+            }).catch(err => {
+                alert('Could not generate image. Please use "Print / Save PDF" instead.');
+                console.error(err);
+            });
+        }
+
+        function handlePrintAndSave() {
+            saveCurrentRecord();
+            window.print();
+        }
+
+        // History / Record Keeping (Local Storage)
+        function saveCurrentRecord() {
+            try {
+                const record = {
+                    id: 'MED-' + Date.now().toString().slice(-6),
+                    patient: document.getElementById('inputPatientName').value,
+                    opd: document.getElementById('inputOPD').value,
+                    facility: document.getElementById('inputFacilityName').value,
+                    seenDate: document.getElementById('inputSeenDate').value,
+                    duration: `${document.getElementById('inputDurationNum').value} ${document.getElementById('inputDurationUnit').value}`,
+                    doctor: document.getElementById('inputDoctorName').value,
+                    savedAt: new Date().toLocaleString()
+                };
+
+                const records = JSON.parse(localStorage.getItem('sick_sheet_records') || '[]');
+                records.unshift(record);
+                if (records.length > 50) records.pop();
+                localStorage.setItem('sick_sheet_records', JSON.stringify(records));
+                loadRecordsCount();
+            } catch (e) {
+                console.warn('LocalStorage unavailable', e);
+            }
+        }
+
+        function loadRecordsCount() {
+            try {
+                const records = JSON.parse(localStorage.getItem('sick_sheet_records') || '[]');
+                document.getElementById('recordCount').innerText = records.length;
+            } catch (e) {}
+        }
+
+        function toggleHistoryModal(show) {
+            const modal = document.getElementById('historyModal');
+            if (show) {
+                modal.classList.remove('hidden');
+                renderHistoryList();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderHistoryList() {
+            const list = document.getElementById('historyList');
+            const records = JSON.parse(localStorage.getItem('sick_sheet_records') || '[]');
+            if (records.length === 0) {
+                list.innerHTML = `<p class="text-sm text-slate-400 text-center py-8">No saved records yet. Issued sick sheets are automatically archived here.</p>`;
+                return;
+            }
+
+            list.innerHTML = records.map(r => `
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs hover:bg-slate-100 transition">
+                    <div>
+                        <div class="font-bold text-slate-900 text-sm">${r.patient} <span class="text-xs text-slate-500 font-normal">(${r.opd})</span></div>
+                        <div class="text-slate-600 mt-0.5">${r.facility} • <strong>Off:</strong> ${r.duration} • <strong>Dr:</strong> ${r.doctor}</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">Issued: ${r.savedAt}</div>
+                    </div>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-semibold">${r.id}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearAllRecords() {
+            if (confirm('Are you sure you want to clear all archived records?')) {
+                localStorage.removeItem('sick_sheet_records');
+                loadRecordsCount();
+                renderHistoryList();
+            }
+        }
+
+        // Quick sample fillers
+        function fillSampleData(type) {
+            document.getElementById('toggleBlankMode').checked = false;
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+
+            document.getElementById('inputSeenDate').value = todayStr;
+            document.getElementById('inputStartDate').value = todayStr;
+            document.getElementById('inputStampDate').value = todayStr;
+
+            if (type === 'hospital') {
+                document.getElementById('inputFacilityName').value = 'NAIROBI METROPOLITAN HOSPITAL';
+                document.getElementById('inputFacilitySub').value = 'General Consultation • Inpatient Care • Surgery & Diagnostics';
+                document.getElementById('inputFacilityContact').value = 'Hospital Hill Rd, P.O. Box 40220 • Tel: +254 20 765 4321';
+                document.getElementById('inputShowHeader').value = 'true';
+                document.getElementById('inputPatientName').value = 'Grace A. Wanjiku';
+                document.getElementById('inputAge').value = '28 Yrs';
+                document.getElementById('inputOPD').value = 'NMH/OPD/2026/4102';
+                document.getElementById('inputDurationNum').value = '4';
+                document.getElementById('inputDurationUnit').value = 'days';
+                document.getElementById('inputDoctorName').value = 'Dr. Patrick K. Ndegwa, MBChB';
+                document.getElementById('inputStampShape').value = 'circle';
+                document.getElementById('inputStampTextTop').value = 'NAIROBI METROPOLITAN HOSPITAL';
+                document.getElementById('inputStampTextBottom').value = '★ OUTPATIENT DEPARTMENT ★';
+                document.getElementById('inputStampCenter1').value = 'CHIEF MEDICAL OFF.';
+                document.getElementById('inputStampCenter2').value = 'VERIFIED & CERTIFIED';
+                document.getElementById('inputStampColor').value = '#1d4ed8'; // Blue
+            } else if (type === 'clinic') {
+                document.getElementById('inputFacilityName').value = 'OAKWOOD FAMILY CLINIC & HEALTH CENTRE';
+                document.getElementById('inputFacilitySub').value = 'Primary Care Clinic • Occupational Health & Medical Examinations';
+                document.getElementById('inputFacilityContact').value = 'Suite 4B, Plaza Centre • Phone: +1 (555) 349-2100';
+                document.getElementById('inputShowHeader').value = 'true';
+                document.getElementById('inputPatientName').value = 'Michael Henderson';
+                document.getElementById('inputAge').value = '45 Yrs';
+                document.getElementById('inputOPD').value = 'CLN-9924-A';
+                document.getElementById('inputDurationNum').value = '1';
+                document.getElementById('inputDurationUnit').value = 'weeks';
+                document.getElementById('inputDoctorName').value = 'Dr. Amanda Foster, MD';
+                document.getElementById('inputStampShape').value = 'oval';
+                document.getElementById('inputStampTextTop').value = 'OAKWOOD FAMILY HEALTH CLINIC';
+                document.getElementById('inputStampTextBottom').value = '★ LICENSED CLINICAL PRACTICE ★';
+                document.getElementById('inputStampCenter1').value = 'MEDICAL PRACTITIONER';
+                document.getElementById('inputStampCenter2').value = 'DUTY OFF APPROVED';
+                document.getElementById('inputStampColor').value = '#6b21a8'; // Purple
+            } else if (type === 'pharmacy') {
+                document.getElementById('inputFacilityName').value = 'PRIMECARE PHARMACEUTICALS & CLINICAL DESK';
+                document.getElementById('inputFacilitySub').value = 'Dispensing Chemists • Primary Care Triage & Health Consultations';
+                document.getElementById('inputFacilityContact').value = '12 Market St. • Helpline: 0800 234 567 • Reg No: PH/2019/882';
+                document.getElementById('inputShowHeader').value = 'true';
+                document.getElementById('inputPatientName').value = 'Samuel O. Mensah';
+                document.getElementById('inputAge').value = '34 Yrs';
+                document.getElementById('inputOPD').value = 'RX-77218';
+                document.getElementById('inputDurationNum').value = '2';
+                document.getElementById('inputDurationUnit').value = 'days';
+                document.getElementById('inputDoctorName').value = 'Pharm. Brian K. Mutua, PharmD';
+                document.getElementById('inputStampShape').value = 'rect';
+                document.getElementById('inputStampTextTop').value = 'PRIMECARE PHARMACY & DISPENSARY';
+                document.getElementById('inputStampTextBottom').value = '★ PHARMACEUTICAL COUNCIL ★';
+                document.getElementById('inputStampCenter1').value = 'LICENSED PHARMACIST';
+                document.getElementById('inputStampCenter2').value = 'CONSULTATION DESK';
+                document.getElementById('inputStampColor').value = '#b91c1c'; // Red
+            }
+
+            autoCalculateDates();
+            updatePreview();
+        }
+    </script>
+</body>
+</html>
